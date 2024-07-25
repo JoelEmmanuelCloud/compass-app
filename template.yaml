@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  reinvent
+
+  Sample SAM Template for reinvent
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 128
+    CodeUri: handler/
+    Runtime: python3.12
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        THUMBNAIL_SIZE: 128
+        REGION_NAME: "us-east-1"
+
+Resources:
+  CreateThumbnailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.s3_thumbnail_generator
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource:
+                - !Sub arn:aws:s3:::${SrcBucket}/*
+      LoggingConfig:
+        LogFormat: JSON
+      Events:
+        CreateThumbnailEvent:
+          Type: S3
+          Properties:
+            Bucket: !Ref SrcBucket
+            Events: s3:ObjectCreated:*
+
+  SrcBucket:
+    Type: AWS::S3::Bucket
+
+  ApplicationResourceGroup:
+    Type: AWS::ResourceGroups::Group
+    Properties:
+      Name:
+        Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
+      ResourceQuery:
+        Type: CLOUDFORMATION_STACK_1_0
+
+  ApplicationInsightsMonitoring:
+    Type: AWS::ApplicationInsights::Application
+    Properties:
+      ResourceGroupName:
+        Ref: ApplicationResourceGroup
+      AutoConfigurationEnabled: 'true'
+
+# Outputs:
+#   ThumbnailAPI:
+#     Description: API Gateway endpoint URL for Prod stage for CreateThumbnailFunction
+#     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/thumbnail/"
+#   CreateThumbnailFunction:
+#     Description: CreateThumbnail Lambda Function ARN
+#     Value: !GetAtt CreateThumbnailFunction.Arn
